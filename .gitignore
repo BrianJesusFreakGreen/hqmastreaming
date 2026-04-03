@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual env
+venv/
+.env/
+.env
+
+.vscode/
+
+.DS_Store
+Thumbs.db
+
+#Flask Stuff
+instance/
+.webassets-cache
+
+*.logs
+*.db
+
+.coverage
+htmlcov/
