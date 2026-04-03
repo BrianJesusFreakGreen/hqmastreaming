@@ -1,0 +1,81 @@
+/* Reset */
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: transparent;
+  color: white;
+}
+
+.wrap {
+  width: 1920px;
+  height: 1080px;
+  position: relative;
+  background: transparent;
+}
+
+/* Main board */
+.board {
+  position: absolute;
+  left: 60px;
+  bottom: 60px;
+  width: 1800px;
+  background: rgba(0,0,0,0.72);
+  border-radius: 18px;
+  overflow: hidden;
+}
+
+/* Header */
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 18px 24px;
+  font-size: 28px;
+  font-weight: 700;
+  background: rgba(255,255,255,0.08);
+}
+
+.status {
+  font-size: 24px;
+  font-weight: 800;
+}
+
+/* Grid layout */
+.grid {
+  display: grid;
+  grid-template-columns: 80px 110px 1.6fr 120px 140px 140px 140px;
+  gap: 0;
+  align-items: center;
+  font-size: 24px;
+}
+
+.cell {
+  padding: 14px 18px;
+  border-top: 1px solid rgba(255,255,255,0.08);
+}
+
+/* Labels row */
+.labels .cell {
+  font-size: 18px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  opacity: 0.8;
+  font-weight: 700;
+}
+
+/* Layout panels */
+.two-panels {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+
+.panel {
+  padding-bottom: 12px;
+}
+
+.panel-title {
+  padding: 14px 18px 4px;
+  font-size: 22px;
+  font-weight: 800;
+  opacity: 0.9;
+}

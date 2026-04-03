@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>HQMA Overlay</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <div class="wrap">
+    <div class="board">
+      <div class="header">
+        <div>
+          <span id="event_name">HQMA Feature Race</span> —
+          <span id="session_name">Senior Honda</span>
+        </div>
+        <div class="status">
+          <span id="track_status">GREEN</span> |
+          <span id="laps_remaining">12</span> TO GO
+        </div>
+      </div>
+
+      <div class="two-panels">
+        <div class="panel">
+          <div class="panel-title">Top 5</div>
+          <div class="grid" id="leaders_grid"></div>
+        </div>
+        <div class="panel">
+          <div class="panel-title">6–10</div>
+          <div class="grid" id="rest_grid"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="{{ url_for('static', filename='overlay.js') }}"></script>
+</body>
+</html>
