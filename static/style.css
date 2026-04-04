@@ -17,7 +17,7 @@ body {
 .board {
   position: absolute;
   left: 60px;
-  bottom: 60px;
+  top: 20px;
   width: 1800px;
   background: rgba(0,0,0,0.72);
   border-radius: 18px;
@@ -42,21 +42,36 @@ body {
 
 /* Grid layout */
 .grid {
-  display: grid;
-  grid-template-columns: 80px 110px 1.6fr 120px 140px 140px 140px;
+  display: inline-flex;
+  grid-template-columns: 40px 40px 75px 60px 60px;
   gap: 0;
   align-items: center;
   font-size: 24px;
 }
 
 .cell {
-  padding: 14px 18px;
+  padding: 5px 15px;
   border-top: 1px solid rgba(255,255,255,0.08);
+  width:80px;
+}
+.pos{
+    background-color: white;
+    color:black;
+    width:20px;
+}
+.car{
+    width:20px;
+}
+.name{
+    width:100px;
+}
+.gap::before{
+    content:"-"
 }
 
 /* Labels row */
 .labels .cell {
-  font-size: 18px;
+  font-size: 14px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   opacity: 0.8;
@@ -66,7 +81,7 @@ body {
 /* Layout panels */
 .two-panels {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: auto;
 }
 
 .panel {
