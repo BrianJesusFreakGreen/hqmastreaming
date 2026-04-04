@@ -2,21 +2,31 @@ function renderTable(containerId, rows) {
   const el = document.getElementById(containerId);
   el.innerHTML = "";
 
-  const headers = ["Pos", "Car", "Name", "Laps", "Best", "Last", "Gap"];
+  /* const headers = ["Pos", "Car", "Name", "Last", "Gap"];
   headers.forEach(h => {
     const c = document.createElement("div");
     c.className = "cell";
     c.textContent = h;
     el.appendChild(c);
   });
-
+*/
   rows.forEach(row => {
-    ["pos", "car", "name", "laps", "best", "last", "gap"].forEach(key => {
-      const c = document.createElement("div");
-      c.className = "cell";
-      c.textContent = row[key];
-      el.appendChild(c);
-    });
+    if (row.pos === 1){
+        ["pos", "car", "name", "last"].forEach(key => {
+        const c = document.createElement("div");
+        c.className = "cell " + key;
+        c.textContent = row[key];
+        el.appendChild(c);
+        });
+    }
+    else{
+        ["pos", "car", "name", "gap"].forEach(key => {
+        const c = document.createElement("div");
+        c.className = "cell " + key;
+        c.textContent = row[key];
+        el.appendChild(c);
+        });
+    }
   });
 }
 
