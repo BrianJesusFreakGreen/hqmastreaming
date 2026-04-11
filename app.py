@@ -5,8 +5,8 @@ from listener import start_listener
 
 app = Flask(__name__)
 
-# Replace this later with real shared state from listener/parser
-CURRENT_STATE = {}
+# Seed with a complete shape so /api/state is always parseable by the overlay
+CURRENT_STATE = get_fake_overlay_state()
 
 def start_background_listener():
     t = threading.Thread(target=start_listener, args=(CURRENT_STATE,))
@@ -23,10 +23,7 @@ def overlay():
 
 @app.route("/debug/raw")
 def debug_raw():
-    return {
-        "status": "ok",
-        "message": "Raw packet debug endpoint placeholder"
-    }
+    return jsonify(CURRENT_STATE.get("last_packet", {"status": "no-packets-yet"}))
 
 if __name__ == "__main__":
     start_background_listener()
