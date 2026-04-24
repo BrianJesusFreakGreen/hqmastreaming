@@ -34,7 +34,9 @@ body {
   font-weight: 700;
   background: rgba(255,255,255,0.08);
 }
-
+#top-banner{
+  margin-left:100px;
+}
 .status {
   font-size: 24px;
   font-weight: 800;
@@ -49,10 +51,10 @@ body {
   font-size: 24px;
 }
 
-.cell {
+.entry {
   padding: 5px 15px;
   border-top: 1px solid rgba(255,255,255,0.08);
-  width:80px;
+  width:70px;
 }
 .pos{
     background-color: white;
@@ -63,10 +65,21 @@ body {
     width:20px;
 }
 .name{
-    width:100px;
+    width:110px;
+    container-type: inline-size;
+
+    
 }
-.gap::before{
-    content:"-"
+.name .text{
+  font-size:clamp(20px, 28, 31px) !important;
+  white-space: nowrap;
+}
+.last, .gap{
+  font-size:22px;
+  width:90px;
+}
+.gap .text::before{
+  content: "-";
 }
 
 /* Labels row */
@@ -85,7 +98,7 @@ body {
 }
 
 .panel {
-  padding-bottom: 12px;
+  padding: 5px 5px 12px 5px;
 }
 
 .panel-title {
@@ -93,4 +106,21 @@ body {
   font-size: 22px;
   font-weight: 800;
   opacity: 0.9;
+}
+
+/*Flag Status Styles */
+.green-flag{
+  background-color: green;
+}
+.yellow-flag{
+  background-color: yellow;
+}
+.red-flag{
+  background-color: red;
+}
+.white-flag{
+
+}
+.checkered-flag{
+  background-color: black;
 }
