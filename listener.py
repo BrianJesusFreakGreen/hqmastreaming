@@ -9,6 +9,7 @@ TCP_IP = "192.168.12.101"
 TCP_PORT = 50000
 LOG_FILE = "raw_packets.log"
 RECONNECT_DELAY_SECONDS = 2
+FINISH_GRACE_SECONDS = 15
 
 
 # ---------------------------------------------------------------------------
@@ -68,6 +69,10 @@ def _parse_duration_to_seconds(value):
     return (hours * 3600) + (minutes * 60) + seconds
 
 
+def _is_finish_flag(value):
+    return "finish" in str(value or "").strip().lower()
+
+
 # ---------------------------------------------------------------------------
 # Session / driver state helpers
 # ---------------------------------------------------------------------------
@@ -95,6 +100,10 @@ def _new_session_state():
             "elapsed": "",          # from $F field[3], session elapsed
             "flag": "",             # from $F field[4]
         },
+        "finish": {
+            "started_at": None,
+            "leader_laps": None,
+        },
         # drivers keyed by short code/id (may be numeric OR initials).
         "drivers": {},
         # index by car/slot number to help resolve $G/$H/$J mismatches.
@@ -118,7 +127,6 @@ def _upsert_driver(session, code, car_number=None, first_name="", last_name="", 
         "car": car_number or key,
         "first_name": "",
         "last_name": "",
-        "full_name": key,
         "transponder": None,
         "extra": {},
     }
@@ -129,8 +137,6 @@ def _upsert_driver(session, code, car_number=None, first_name="", last_name="", 
         driver["first_name"] = first_name
     if last_name:
         driver["last_name"] = last_name
-    if first_name or last_name:
-        driver["full_name"] = f"{driver['first_name']} {driver['last_name']}".strip()
     if transponder is not None:
         driver["transponder"] = transponder
     if isinstance(extra, dict):
@@ -157,6 +163,25 @@ def _resolve_driver_key(session, incoming_code):
     return session["driver_index"].get(code, code)
 
 
+def _current_leader_laps(session):
+    leader_pos = _current_leader_position(session)
+    return leader_pos.get("laps_completed") if leader_pos else None
+
+
+def _current_leader_position(session):
+    positions = list(session["positions"].values())
+    if not positions:
+        return None
+
+    return min(
+        positions,
+        key=lambda p: (
+            -(p.get("laps_completed") if p.get("laps_completed") is not None else -1),
+            p.get("elapsed_seconds") if p.get("elapsed_seconds") is not None else float("inf"),
+        ),
+    )
+
+
 def _build_leaderboard(session):
     positions = session["positions"]
     if not positions:
@@ -164,32 +189,87 @@ def _build_leaderboard(session):
 
     rows = []
     for code, pos_data in positions.items():
-        driver = session["drivers"].get(code, {"code": code, "car": code, "full_name": code})
+        driver = session["drivers"].get(
+            code,
+            {"code": code, "car": code, "first_name": "", "last_name": ""},
+        )
         fastest = session["fastest"].get(code, {})
 
         rows.append(
             {
-                "pos": pos_data.get("position"),
+                "official_pos": pos_data.get("position"),
                 "car": driver.get("car") or code,
                 "code": code,
-                "name": driver.get("full_name") or code,
+                "name": code,
+                "first_name": driver.get("first_name") or "",
+                "last_name": driver.get("last_name") or "",
                 "laps": pos_data.get("laps_completed"),
                 "elapsed": pos_data.get("elapsed"),
                 "elapsed_seconds": pos_data.get("elapsed_seconds"),
+                "seen_at_leader_lap": pos_data.get("seen_at_leader_lap"),
+                "last_g_at": pos_data.get("last_g_at"),
+                "display_gap_seconds": pos_data.get("display_gap_seconds"),
                 "best_lap": fastest.get("best_lap"),
                 "best_lap_lap": fastest.get("lap_number"),
             }
         )
 
-    rows.sort(key=lambda r: (r["pos"] is None, r["pos"] if r["pos"] is not None else 999))
+    rows.sort(
+        key=lambda r: (
+            -(r["laps"] if r["laps"] is not None else -1),
+            r["elapsed_seconds"] if r["elapsed_seconds"] is not None else float("inf"),
+            r["official_pos"] if r["official_pos"] is not None else 999,
+            r["car"],
+        )
+    )
+    for idx, row in enumerate(rows, start=1):
+        row["pos"] = idx
 
-    leader_seconds = rows[0].get("elapsed_seconds") if rows else None
+    finish_state = session.get("finish", {})
+    finish_started_at = finish_state.get("started_at")
+    finish_leader_laps = finish_state.get("leader_laps")
+    finish_grace_expired = (
+        finish_started_at is not None
+        and (time.monotonic() - finish_started_at) >= FINISH_GRACE_SECONDS
+    )
+
+    leader_laps = rows[0].get("laps") if rows else None
     for row in rows:
-        if leader_seconds is None or row.get("elapsed_seconds") is None:
+        confirmed_laps_down = 0
+        if (
+            row["pos"] != 1
+            and leader_laps is not None
+            and row.get("laps") is not None
+        ):
+            raw_lap_diff = leader_laps - row["laps"]
+            if raw_lap_diff > 0:
+                confirmed_laps_down = max(0, raw_lap_diff - 1)
+                if row.get("seen_at_leader_lap") == leader_laps:
+                    confirmed_laps_down += 1
+
+        if (
+            finish_grace_expired
+            and row["pos"] != 1
+            and finish_leader_laps is not None
+            and row.get("laps") is not None
+        ):
+            final_raw_lap_diff = finish_leader_laps - row["laps"]
+            crossed_after_finish = (
+                row.get("last_g_at") is not None
+                and finish_started_at is not None
+                and row["last_g_at"] > finish_started_at
+            )
+            if final_raw_lap_diff > 0 and not crossed_after_finish:
+                confirmed_laps_down = max(confirmed_laps_down, final_raw_lap_diff)
+
+        if confirmed_laps_down > 0:
+            row["gap"] = f"-{confirmed_laps_down}L"
+        elif row["pos"] == 1:
+            row["gap"] = ""
+        elif row.get("display_gap_seconds") is None:
             row["gap"] = ""
         else:
-            gap_seconds = row["elapsed_seconds"] - leader_seconds
-            row["gap"] = "" if row["pos"] == 1 else f"{gap_seconds:.3f}"
+            row["gap"] = f"{row['display_gap_seconds']:.3f}"
 
         # Keep legacy keys so existing overlay markup still works.
         row["last"] = row.get("best_lap") or ""
@@ -215,6 +295,7 @@ def _handle_line(session, line_type, fields, shared_state):
         session["driver_index"] = {}
         session["positions"] = {}
         session["fastest"] = {}
+        session["finish"] = {"started_at": None, "leader_laps": None}
 
     elif line_type == "$A":
         # Expected: code, car, transponder, first, last, blank, unknown
@@ -255,10 +336,9 @@ def _handle_line(session, line_type, fields, shared_state):
         key = fields[0] if len(fields) >= 1 else ""
         value = fields[1] if len(fields) >= 2 else ""
 
-        # Keep first descriptive class-like value as class name.
-        if value and not value.isdigit() and not session["class"]["name"]:
-            session["class"]["name"] = value
-        session["class"]["unknown"][key] = value
+        # Assign the class name, ie. Senior Honda
+        session["class"]["name"] = value
+        
 
     elif line_type == "$E":
         meta_key = fields[0] if len(fields) >= 1 else ""
@@ -278,6 +358,13 @@ def _handle_line(session, line_type, fields, shared_state):
         session["clock"]["elapsed"] = fields[3] if len(fields) >= 4 else ""
         session["clock"]["flag"] = fields[4] if len(fields) >= 5 else ""
 
+        if _is_finish_flag(session["clock"]["flag"]):
+            if session["finish"]["started_at"] is None:
+                session["finish"]["started_at"] = time.monotonic()
+                session["finish"]["leader_laps"] = _current_leader_laps(session)
+        else:
+            session["finish"] = {"started_at": None, "leader_laps": None}
+
     elif line_type == "$G":
         # Expected: position, code, laps_completed, elapsed
         position = _to_int(fields[0]) if len(fields) >= 1 else None
@@ -286,16 +373,40 @@ def _handle_line(session, line_type, fields, shared_state):
         elapsed = fields[3] if len(fields) >= 4 else ""
         elapsed_seconds = _parse_duration_to_seconds(elapsed)
 
+        # Some feeds leave laps blank until a driver completes their first lap.
+        # Treat that as 0 so stalled/non-scoring cars can still be marked laps down.
+        if laps_completed is None:
+            laps_completed = 0
+
         driver_key = _resolve_driver_key(session, raw_code)
 
         if driver_key not in session["drivers"]:
             _upsert_driver(session, code=driver_key, car_number=driver_key)
+
+        existing_pos = session["positions"].get(driver_key, {})
+        leader_pos = _current_leader_position(session)
+        leader_laps = laps_completed if position == 1 else _current_leader_laps(session)
+        display_gap_seconds = existing_pos.get("display_gap_seconds")
+
+        if position == 1:
+            display_gap_seconds = 0.0
+        elif (
+            leader_pos is not None
+            and leader_laps is not None
+            and laps_completed == leader_laps
+            and leader_pos.get("elapsed_seconds") is not None
+            and elapsed_seconds is not None
+        ):
+            display_gap_seconds = max(0.0, elapsed_seconds - leader_pos["elapsed_seconds"])
 
         session["positions"][driver_key] = {
             "position": position,
             "laps_completed": laps_completed,
             "elapsed": elapsed,
             "elapsed_seconds": elapsed_seconds,
+            "seen_at_leader_lap": leader_laps,
+            "last_g_at": time.monotonic(),
+            "display_gap_seconds": display_gap_seconds,
         }
 
     elif line_type == "$H":

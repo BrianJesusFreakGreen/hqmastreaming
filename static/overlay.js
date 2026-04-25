@@ -5,6 +5,26 @@ function text(value, fallback = "") {
   return value === undefined || value === null || value === "" ? fallback : String(value);
 }
 
+function formatDriverName(row) {
+  const firstName = text(row.first_name).trim();
+  const lastName = text(row.last_name).trim();
+
+  if (firstName && lastName) return `${firstName[0]}. ${lastName}`;
+  if (lastName) return lastName;
+  if (firstName) return firstName;
+  return text(row.name).trim();
+}
+
+function formatLastLap(value) {
+  const raw = text(value).trim();
+  if (!raw) return "";
+
+  const match = raw.match(/^(?:\d+:)?(\d{2}):(\d{2})\.(\d{3})$/);
+  if (!match) return raw;
+
+  return `${match[2]}.${match[3]}`;
+}
+
 function renderTable(containerId, rows) {
   const container = document.getElementById(containerId);
   if (!container) return;
@@ -16,10 +36,17 @@ function renderTable(containerId, rows) {
     const keys = isLeader ? ["pos", "car", "name", "last"] : ["pos", "car", "name", "gap"];
 
     keys.forEach((key) => {
-      const cell = document.createElement("div");
-      cell.className = `cell ${key}`;
-      cell.textContent = text(row[key], "-");
-      container.appendChild(cell);
+      const entry = document.createElement("div");
+      entry.className = `entry ${key}`;
+      const keyText = document.createElement("div");
+      keyText.className = 'text';
+      const value =
+        key === "name" ? formatDriverName(row) :
+        key === "last" ? formatLastLap(row[key]) :
+        row[key];
+      keyText.textContent = text(value, "-");
+      container.appendChild(entry);
+      entry.appendChild(keyText);
     });
   });
 }
@@ -29,7 +56,23 @@ function renderHeader(data) {
   // and backed by the new stream packet handlers.
   document.getElementById("event_name").textContent = text(data.event_name, "Waiting for race...");
   document.getElementById("session_name").textContent = text(data.session_name, "");
-  document.getElementById("track_status").textContent = text(data.track_status, "-");
+  const statusEl = document.getElementById("track_status");
+  const status = text(data.track_status, "-");
+  statusEl.textContent = status;  //Set's Status In Element
+  
+  //change track_status class name based on flag
+  //rMon does not report white
+  // TODO compare leaders laps/lapsremaining with total race distance to add className of white-flag
+  const normalizedStatus = status.toLowerCase();
+  if(normalizedStatus.includes("green")){
+    statusEl.className = "green-flag";
+  }else if (normalizedStatus.includes("yellow")){
+    statusEl.className = "yellow-flag";
+  }else if (normalizedStatus.includes("red")){
+    statusEl.className = "red-flag";
+  }else if (normalizedStatus.includes("finish")){
+    statusEl.className = "checkered-flag";
+  }
 
   const lapsRemaining = data.laps_remaining;
   document.getElementById("laps_remaining").textContent =
