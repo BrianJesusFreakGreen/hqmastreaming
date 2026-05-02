@@ -410,7 +410,8 @@ def _handle_line(session, line_type, fields, shared_state):
         }
 
     elif line_type == "$H":
-        # Expected: position, code, best_lap_number, best_lap_time
+        # Expected: Fast Time Position, code, best_lap_number, best_lap_time
+        fast_time_pos = fields[0]  #Currently unused put added for clarity on what that field is.
         raw_code = fields[1] if len(fields) >= 2 else ""
         lap_number = _to_int(fields[2]) if len(fields) >= 3 else None
         best_lap = fields[3] if len(fields) >= 4 else ""
